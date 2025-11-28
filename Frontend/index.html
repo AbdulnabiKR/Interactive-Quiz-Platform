@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Quiz Platform</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <h1>Quiz Platform</h1>
+  <div id="main-content">
+    <!-- Quiz list and details will be loaded here -->
+    <div id="quiz-list" class="section"></div>
+    <div id="quiz-detail" class="section"></div>
+  </div>
+  <div id="error" class="error"></div>
+  <!-- Add to index.html, under main-content -->
+<button onclick="showAdminPanel()">Admin Manage</button>
+<div id="admin-panel" style="display:none;">
+  <div id="admin-quizzes"></div>
+  <div id="admin-questions"></div>
+</div>
+  <script src="app.js"></script>
+</body>
+</html>
