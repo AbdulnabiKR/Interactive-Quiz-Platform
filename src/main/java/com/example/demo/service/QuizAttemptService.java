@@ -7,6 +7,8 @@ import com.example.demo.repository.QuizAttemptRepository;
 import com.example.demo.repository.UserRepository;
 import com.example.demo.repository.QuizRepository;
 import com.example.demo.dto.QuizAttemptDTO;
+import com.example.demo.dto.QuizAttemptSummaryDTO;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -30,6 +32,7 @@ public class QuizAttemptService {
         attempt.setUser(user);
         attempt.setQuiz(quiz);
         attempt.setStartedAt(dto.getStartedAt());
+        attempt.setScore(dto.getScore());
         return attemptRepository.save(attempt);
     }
 
@@ -54,7 +57,6 @@ public class QuizAttemptService {
         existing.setUser(user);
         existing.setQuiz(quiz);
         existing.setStartedAt(dto.getStartedAt());
-        // Add more fields if needed
         return attemptRepository.save(existing);
     }
 
@@ -66,4 +68,15 @@ public class QuizAttemptService {
             return false;
         }
     }
+
+    public QuizAttemptSummaryDTO getSummary(Integer userId, Integer quizId) {
+        List<QuizAttempt> attempts = attemptRepository.findByUserAndQuizOrderByStartedAtDesc(userId, quizId);
+        long count = attempts.size();
+        Integer lastScore = null;
+        if (!attempts.isEmpty()) {
+            lastScore = attempts.get(0).getScore(); // latest attempt
+        }
+        return new QuizAttemptSummaryDTO(count, lastScore);
+    }
+
 }

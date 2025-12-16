@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "quiz_attempts")
 public class QuizAttempt {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
@@ -18,9 +19,12 @@ public class QuizAttempt {
     @JoinColumn(name = "quiz_id")
     private Quiz quiz;
 
+    @Column(name = "taken_at")
     private LocalDateTime startedAt;
 
-    // Getters/Setters for all fields
+    private Integer score; // <--- field with default column "score"
+
+    // Getters/Setters
     public Integer getId() {
         return id;
     }
@@ -51,5 +55,13 @@ public class QuizAttempt {
 
     public void setStartedAt(LocalDateTime startedAt) {
         this.startedAt = startedAt;
+    }
+
+    public Integer getScore() {
+        return score;
+    }
+
+    public void setScore(Integer score) {
+        this.score = score;
     }
 }

@@ -3,6 +3,8 @@ package com.example.demo.controller;
 import com.example.demo.model.QuizAttempt;
 import com.example.demo.service.QuizAttemptService;
 import com.example.demo.dto.QuizAttemptDTO;
+import com.example.demo.dto.QuizAttemptSummaryDTO;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -52,5 +54,11 @@ public class QuizAttemptController {
         } else {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    @GetMapping("/summary")
+    public QuizAttemptSummaryDTO getSummary(@RequestParam Integer userId,
+            @RequestParam Integer quizId) {
+        return attemptService.getSummary(userId, quizId);
     }
 }

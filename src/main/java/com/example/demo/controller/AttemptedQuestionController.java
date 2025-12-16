@@ -38,7 +38,7 @@ public class AttemptedQuestionController {
         }
     }
 
-    // DELETE by ID (optional, can be left out if not needed)
+    // DELETE by ID (optional)
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Integer id) {
         boolean deleted = service.delete(id);

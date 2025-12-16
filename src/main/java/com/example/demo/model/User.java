@@ -1,7 +1,5 @@
 package com.example.demo.model;
 
-
-
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -60,19 +58,19 @@ public class User {
         this.createdAt = createdAt;
     }
 
-    @Column(nullable=false, unique=true)
+    @Column(nullable = false, unique = true)
     private String username;
 
-    @Column(nullable=false)
+    @Column(nullable = false)
     private String password;
 
-    @Column(nullable=false, unique=true)
+    @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(nullable=false)
+    @Column(nullable = false)
     private String role;
 
-    @Column(name="created_at")
+    @Column(name = "created_at")
     private LocalDateTime createdAt;
 
     // Getters and Setters (write them yourself OR use Lombok for auto-generation)

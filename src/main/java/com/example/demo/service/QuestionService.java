@@ -28,7 +28,7 @@ public class QuestionService {
         List<Question> questions = questionRepository.findByQuizId(quizId);
         Collections.shuffle(questions); // random order every time
 
-        int maxPerAttempt = 10; // change this if you want more/less
+        int maxPerAttempt = 10;
         int limit = Math.min(maxPerAttempt, questions.size());
         return questions.subList(0, limit);
     }

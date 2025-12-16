@@ -5,7 +5,8 @@ import java.time.LocalDateTime;
 public class QuizAttemptDTO {
     private Integer userId;
     private Integer quizId;
-    private LocalDateTime startedAt;    
+    private LocalDateTime startedAt;
+    private Integer score;
 
     public Integer getUserId() {
         return userId;
@@ -29,5 +30,13 @@ public class QuizAttemptDTO {
 
     public void setStartedAt(LocalDateTime startedAt) {
         this.startedAt = startedAt;
+    }
+
+    public Integer getScore() {
+        return score;
+    } // <--- add getter
+
+    public void setScore(Integer score) {
+        this.score = score;
     }
 }

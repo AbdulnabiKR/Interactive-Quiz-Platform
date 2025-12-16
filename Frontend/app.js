@@ -1,43 +1,110 @@
 const API_BASE = 'http://localhost:8082/api';
+let quizTimerId = null;
+let loggedInUsername = null;
 
 window.onload = function() {
-  loadQuizList();
-  addSearch();
+   showLogin(); 
   showLoginStatus();
 };
 
-let loggedInUsername = null;
 
 // ---- UI Helpers ----
 function showLoginStatus() {
   const header = document.querySelector('h1');
-  if (loggedInUsername)
-    header.innerHTML = `Quiz Platform <span style="font-size:medium;float:right">User: ${loggedInUsername} <button onclick="logout()">Logout</button></span>`;
-  else
-    header.innerHTML = `Quiz Platform <span style="font-size:medium;float:right"><button onclick="showLogin()">Login</button></span>`;
+  if (loggedInUsername) {
+    header.innerHTML = `
+      Quiz Platform
+      <span style="font-size:medium; float:right">
+        User: ${loggedInUsername}
+        <button onclick="logout()">Logout</button>
+      </span>`;
+  } else {
+    header.innerHTML = `
+      Quiz Platform
+      <span style="font-size:medium; float:right">
+        <button onclick="showLogin()">Login</button>
+      </span>`;
+  }
+
+  // Show/hide Admin button
+  const adminBtn = document.querySelector('button[onclick="showAdminPanel()"]');
+  if (adminBtn) {
+    adminBtn.style.display = (loggedInUsername === 'admin') ? 'inline-block' : 'none';
+  }
 }
+
+
 
 function logout() {
   loggedInUsername = null;
-  loadQuizList();
+
+  // Hide admin button and panel
+  const adminBtn = document.querySelector('button[onclick="showAdminPanel()"]');
+  if (adminBtn) adminBtn.style.display = 'none';
+
+  const adminPanel = document.getElementById('admin-panel');
+  if (adminPanel) adminPanel.style.display = 'none';
+
+  // Restore main quiz view (optional)
+  document.getElementById('main-content').innerHTML = `
+    <div id="quiz-list" class="section"></div>
+    <div id="quiz-detail" class="section"></div>
+  `;
+
   showLoginStatus();
+ 
 }
 
+
 function showLogin() {
-  document.getElementById('main-content').innerHTML = `
+ 
+    document.getElementById('main-content').innerHTML = `
     <form id="login-form">
       <input name="username" placeholder="Username" required />
       <input type="password" name="password" placeholder="Password" required />
       <button type="submit">Login</button>
     </form>
+    <p style="margin-top:10px; font-size:14px;">
+      Demo credentials – Admin: admin / admin123 | User: jane_smith/ jane123
+    </p>
   `;
   document.getElementById('login-form').onsubmit = function(e){
     e.preventDefault();
-    loggedInUsername = new FormData(this).get('username');
-    loadQuizList();
-    showLoginStatus();
+    const fd = new FormData(this);
+    const username = fd.get('username');
+    const password = fd.get('password');
+
+    fetch(`${API_BASE}/users/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    })
+      .then(res => {
+        if (!res.ok) {
+          throw new Error('Invalid username or password');
+        }
+        return res.json();
+      })
+      .then(user => {
+        loggedInUsername = user.username;
+
+        // restore quiz layout after login
+        document.getElementById('main-content').innerHTML = `
+          <div id="quiz-list" class="section"></div>
+          <div id="quiz-detail" class="section"></div>
+        `;
+
+        showLoginStatus();
+        loadQuizList();  // now this will find #quiz-list correctly
+      })
+      .catch(err => {
+        showError(err);
+      });
   };
 }
+
+
+
 
 // ---- Quiz List/Search ----
 function loadQuizList() {
@@ -74,8 +141,13 @@ function filterQuizzes() {
   );
 }
 
-// ---- Quiz Detail and Attempt ----
 function showQuizDetail(quizId) {
+  if (!loggedInUsername) {
+    alert("Please login first to attempt quizzes.");
+    showLogin();
+    return;
+  }
+
   clearError();
   fetch(`${API_BASE}/quizzes/${quizId}`)
     .then(res => res.json())
@@ -89,11 +161,30 @@ function showQuizDetail(quizId) {
         <button onclick="loadQuizQuestions(${q.id})">Show Questions</button>
         <button onclick="loadQuizList()">Back to Quizzes</button>
       `;
+      fetch(`${API_BASE}/quiz-attempts/summary?userId=1&quizId=${quizId}`)
+        .then(res => res.json())
+        .then(summary => {
+          if (!summary) return;
+          const infoP = document.createElement('p');
+          let text = `You have attempted this quiz ${summary.attemptsCount} time(s).`;
+          if (summary.lastScore != null) {
+            text += ` Last score: ${summary.lastScore}%.`;
+          }
+          infoP.textContent = text;
+          detailDiv.appendChild(infoP);
+        })
+        .catch(() => {});
     })
     .catch(showError);
 }
 
+
 function loadQuizQuestions(quizId) {
+    if (!loggedInUsername) {
+    alert("Please login first to attempt quizzes.");
+    showLogin();
+    return;
+  }
   clearError();
   fetch(`${API_BASE}/questions?quizId=${quizId}`)
     .then(res => res.json())
@@ -119,36 +210,55 @@ function loadQuizQuestions(quizId) {
                    <button type="button" onclick="loadQuizList()">Cancel</button>
       </form>`;
       detailDiv.innerHTML = formHtml;
+      startQuizTimer(180); 
       window.attemptQuizInfo = { quizId, questions };
       document.getElementById('quiz-form').onsubmit = submitQuizAttempt;
     }).catch(showError);
 }
 
 function submitQuizAttempt(event) {
+  if (quizTimerId) {
+    clearInterval(quizTimerId);
+    quizTimerId = null;
+  }
   event.preventDefault();
-  // Use username as demo user, or set userId=1 if not logged in
+
   const userId = loggedInUsername ? 1 : 1;
   const quizId = window.attemptQuizInfo.quizId;
   const questions = window.attemptQuizInfo.questions;
 
+  // 1) Calculate correct answers
+  let correct = 0;
+  let promises = [];
+  questions.forEach(q => {
+    const chosen = document.querySelector(`input[name="q${q.id}"]:checked`);
+    if (chosen) {
+      const chosenOpt = chosen.value;
+      if (chosenOpt === q.correctOption) correct++;
+    }
+  });
+
+  const total = questions.length;
+  const percent = Math.round((correct / total) * 100);
+
+  // 2) Save attempt with score
   fetch(`${API_BASE}/quiz-attempts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       userId,
       quizId,
-      startedAt: new Date().toISOString().slice(0,19)
+      startedAt: new Date().toISOString().slice(0,19),
+      score: percent
     })
   })
     .then(res => res.json())
     .then(attempt => {
-      let correct = 0;
-      let promises = [];
+      // 3) Save each attempted question
       questions.forEach(q => {
         const chosen = document.querySelector(`input[name="q${q.id}"]:checked`);
         if (chosen) {
           const chosenOpt = chosen.value;
-          if (chosenOpt === q.correctOption) correct++;
           promises.push(
             fetch(`${API_BASE}/attempted-questions`, {
               method: 'POST',
@@ -160,25 +270,41 @@ function submitQuizAttempt(event) {
                 isCorrect: chosenOpt === q.correctOption
               })
             })
-          );
+          );  
         }
       });
+
       return Promise.all(promises).then(() => {
-        showQuizResult(correct, questions.length);
+        showQuizResult(correct, total);
       });
     })
     .catch(showError);
 }
 
+
 function showQuizResult(correct, total) {
+  const percent = Math.round((correct / total) * 100);
+  let message;
+  if (percent === 100) message = 'Excellent!';
+  else if (percent >= 70) message = 'Great job!';
+  else if (percent >= 40) message = 'Keep practicing!';
+  else message = 'Try again and improve.';
+
   document.getElementById('quiz-detail').innerHTML =
     `<h2>Quiz Submitted!</h2>
-     <p>Your Score: <strong>${correct}/${total}</strong></p>
+     <p>Your Score: <strong>${correct}/${total} (${percent}%)</strong></p>
+     <p>${message}</p>
      <button onclick="loadQuizList()">Back to Quizzes</button>`;
 }
 
+
+
 // ---- Admin Management ----
 function showAdminPanel() {
+    if (loggedInUsername !== 'admin') {
+    alert('Only admin can access this section.');
+    return;
+  }
   document.getElementById('admin-panel').style.display = 'block';
   showAdminQuizzes();
   showAdminQuestions();
@@ -202,7 +328,6 @@ function showAdminQuizzes() {
 }
 
 function showAddQuizForm() {
-  // Form HTML is the same
   document.getElementById('admin-quizzes').innerHTML +=
     `<h4>Add Quiz</h4>
      <form id="add-quiz-form">
@@ -352,4 +477,38 @@ function showError(error) {
 }
 function clearError() {
   document.getElementById('error').textContent = '';
+}
+
+
+function startQuizTimer(seconds) {
+  const detailDiv = document.getElementById('quiz-detail');
+  let remaining = seconds;
+
+  const timerSpan = document.createElement('p');
+  timerSpan.id = 'quiz-timer';
+  detailDiv.prepend(timerSpan);
+
+  if (quizTimerId) clearInterval(quizTimerId);
+
+  function updateTimerText() {
+    const mins = Math.floor(remaining / 60);
+    const secs = remaining % 60;
+    const formatted = `${mins}:${secs.toString().padStart(2, '0')}`;
+    timerSpan.textContent = `Time left: ${formatted}`;
+  }
+
+  updateTimerText();
+
+  quizTimerId = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(quizTimerId);
+      quizTimerId = null;
+      timerSpan.textContent = 'Time up!';
+      const form = document.getElementById('quiz-form');
+      if (form) submitQuizAttempt(new Event('submit'));
+    } else {
+      updateTimerText();
+    }
+  }, 1000);
 }
